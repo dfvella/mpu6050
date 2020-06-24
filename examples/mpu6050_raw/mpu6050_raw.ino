@@ -25,7 +25,7 @@ void loop()
 
     int data[6];
 
-    // call get() to retrieve data
+    // call get() to retrieve raw data
     data[0] = mpu.get(Mpu6050::ACCELX);
     data[1] = mpu.get(Mpu6050::ACCELY);
     data[2] = mpu.get(Mpu6050::ACCELZ);
