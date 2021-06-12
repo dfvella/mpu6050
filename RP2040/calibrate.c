@@ -26,15 +26,24 @@ int main() {
     gpio_pull_up(I2C_SDA_PIN);
     gpio_pull_up(I2C_SCL_PIN);
 
+    gpio_init(PICO_DEFAULT_LED_PIN);
+    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+
     printf("Initializing mpu6050...\n");
 
     mpu6050_inst_t mpu6050;
-    mpu6050_init(&mpu6050, &i2c0_inst, PICO_DEFAULT_LED_PIN);
+    if (mpu6050_init(&mpu6050, &i2c0_inst, PICO_DEFAULT_LED_PIN)) {
+        printf("mpu6050 not found\n");
+        return 1;
+    }
 
     printf("Sampling mpu6050 for %d seconds...\n", NUM_READINGS / 250);
 
     mpu6050_data_t data;
-    mpu6050_avg_reading(&mpu6050, &data, NUM_READINGS);
+    if (mpu6050_avg_reading(&mpu6050, &data, NUM_READINGS)) {
+        printf("mpu6050 disconnected\n");
+        return 1;
+    }
 
     printf("x: %d, y: %d, z: %d\n",
         data.accel_x,

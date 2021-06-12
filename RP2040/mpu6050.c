@@ -37,36 +37,84 @@ static quaternion_t quaternion_product(const quaternion_t* p, const quaternion_t
 }
 
 /*
- * configures mpu6050 power management and sensor accuracy
+ * Configures mpu6050 power management and sensor accuracy.
+ * Returns 0 if successfull
+ * Returns 1 if there is no i2c response
  */
-static void mpu6050_config(mpu6050_inst_t* inst) {
+static int mpu6050_config(mpu6050_inst_t* inst) {
     uint8_t buffer[2];
+
+    int ret;
 
     /* configure power management */
     buffer[0] = MPU6050_REG_POWER_MANAGEMENT;
     buffer[1] = MPU6050_COMMAND_POWER_ON;
-    i2c_write_blocking(inst->i2c, MPU6050_I2C_ADDRESS, buffer, 2, false);
+    ret = i2c_write_timeout_us(
+        inst->i2c,
+        MPU6050_I2C_ADDRESS,
+        buffer, 2,
+        false,
+        MPU6050_I2C_TIMEOUT_PRE_BYTE * 2
+    );
+    if (ret != 2) return 1;
 
     /* configure gyro accuracy */
     buffer[0] = MPU6050_REG_GYRO_CONFIG;
     buffer[1] = MPU6050_GYRO_ACCURACY;
-    i2c_write_blocking(inst->i2c, MPU6050_I2C_ADDRESS, buffer, 2, false);
+    ret = i2c_write_timeout_us(
+        inst->i2c,
+        MPU6050_I2C_ADDRESS,
+        buffer, 2,
+        false,
+        MPU6050_I2C_TIMEOUT_PRE_BYTE * 2
+    );
+    if (ret != 2) return 1;
 
     /* configure accelerometer accuracy */
     buffer[0] = MPU6050_REG_ACCEL_CONFIG;
     buffer[1] = MPU6050_ACCEL_ACCURACY;
-    i2c_write_blocking(inst->i2c, MPU6050_I2C_ADDRESS, buffer, 2, false);
+    ret = i2c_write_timeout_us(
+        inst->i2c,
+        MPU6050_I2C_ADDRESS,
+        buffer, 2,
+        false,
+        MPU6050_I2C_TIMEOUT_PRE_BYTE * 2
+    );
+    if (ret != 2) return 1;
+
+    return 0;
 }
 
 /*
- * gets the most recent measurements from the sensors and store them in inst
+ * gets the most recent measurements from the sensors and
+ * stores them in mpu6050 object inst.
+ * Returns 0 if successfull
+ * Returns 1 if there is no response on i2c bus
  */
-static void mpu6050_fetch(mpu6050_inst_t* inst) {
+static int mpu6050_fetch(mpu6050_inst_t* inst) {
     uint8_t buffer[14];
 
     uint8_t reg = MPU6050_REG_ACCEL_XOUT_H;
-    i2c_write_blocking(inst->i2c, MPU6050_I2C_ADDRESS, &reg, 1, true);
-    i2c_read_blocking(inst->i2c, MPU6050_I2C_ADDRESS, buffer, 14, false);
+
+    int ret;
+
+    ret = i2c_write_timeout_us(
+        inst->i2c,
+        MPU6050_I2C_ADDRESS,
+        &reg, 1,
+        true,
+        MPU6050_I2C_TIMEOUT_PRE_BYTE
+    );
+    if (ret != 1) return 1;
+
+    ret = i2c_read_timeout_us(
+        inst->i2c,
+        MPU6050_I2C_ADDRESS,
+        buffer, 14,
+        false,
+        MPU6050_I2C_TIMEOUT_PRE_BYTE * 14
+    );
+    if (ret != 14) return 1;
 
     inst->data.accel_x = buffer[0] << 8 | buffer[1];
     inst->data.accel_y = buffer[2] << 8 | buffer[3];
@@ -75,13 +123,17 @@ static void mpu6050_fetch(mpu6050_inst_t* inst) {
     inst->data.gyro_x = buffer[8] << 8 | buffer[9];
     inst->data.gyro_y = buffer[10] << 8 | buffer[11];
     inst->data.gyro_z = buffer[12] << 8 | buffer[13];
+
+    return 0;
 }
 
 /*
  * blocks until the acceleration measurements are not changing
- * more than MPU6050_CAL_MIN_ACCEL
+ * more than MPU6050_CAL_MIN_ACCEL.
+ * Returns 0 if successfull
+ * Returns 1 if there is no reponse on i2c bus
  */
-static void mpu6050_wait_for_rest(mpu6050_inst_t* inst) {
+static int mpu6050_wait_for_rest(mpu6050_inst_t* inst) {
     uint8_t led_state = 0;
 
     uint16_t count = 0;
@@ -95,7 +147,8 @@ static void mpu6050_wait_for_rest(mpu6050_inst_t* inst) {
         while (absolute_time_diff_us(timer, get_absolute_time()) < 4000);
         timer = get_absolute_time();
 
-        mpu6050_fetch(inst);
+        if (mpu6050_fetch(inst))
+            return 1;
 
         int32_t x_diff = abs(inst->data.accel_x - x_prev);
         int32_t y_diff = abs(inst->data.accel_y - y_prev);
@@ -118,17 +171,15 @@ static void mpu6050_wait_for_rest(mpu6050_inst_t* inst) {
             gpio_put(inst->led_pin, led_state);
         }
     }
+    return 0;
 }
 
 /*
  * Initialize mpu6050 object. Pass 0 for argument pin to disable status led.
+ * Returns 0 if initialization is successfull.
+ * Returns 1 if there is no response on i2c bus.
  */
-void mpu6050_init(mpu6050_inst_t* inst, i2c_inst_t* i2c, uint pin) {
-    /* initialize status led if enabled */
-    if (pin) {
-        gpio_init(pin);
-        gpio_set_dir(pin, GPIO_OUT);
-    }
+int mpu6050_init(mpu6050_inst_t* inst, i2c_inst_t* i2c, uint pin) {
     inst->led_pin = pin;
 
     inst->i2c = i2c;
@@ -138,14 +189,17 @@ void mpu6050_init(mpu6050_inst_t* inst, i2c_inst_t* i2c, uint pin) {
     inst->orientation.y = 0.00001;
     inst->orientation.z = 0.00001;
 
-    mpu6050_config(inst);
+    if (mpu6050_config(inst))
+        return 1;
 
     #ifdef MPU6050_CAL_WAIT_FOR_REST
-    mpu6050_wait_for_rest(inst);
+    if (mpu6050_wait_for_rest(inst))
+        return 1;
     #endif /* MPU6050_CAL_WAIT_FOR_REST */
 
     mpu6050_data_t calibration_data;
-    mpu6050_avg_reading(inst, &calibration_data, MPU6050_CAL_READINGS);
+    if (mpu6050_avg_reading(inst, &calibration_data, MPU6050_CAL_READINGS))
+        return 1;
 
     inst->x_zero = calibration_data.gyro_x;
     inst->y_zero = calibration_data.gyro_y;
@@ -190,12 +244,16 @@ void mpu6050_init(mpu6050_inst_t* inst, i2c_inst_t* i2c, uint pin) {
     #endif /* MPU6050_CAL_GRAVITY_ZERO */
 
     gpio_put(inst->led_pin, 0);
+
+    return 0;
 }
 
 /*
  * Returns the average result of n sensor readings
+ * Returns 0 if reading was successfull.
+ * Returns 1 if there is no response on i2c bus.
  */
-void mpu6050_avg_reading(mpu6050_inst_t* inst, mpu6050_data_t* data, uint16_t n) {
+int mpu6050_avg_reading(mpu6050_inst_t* inst, mpu6050_data_t* data, uint16_t n) {
     float gyro_x = 0;
     float gyro_y = 0;
     float gyro_z = 0;
@@ -214,7 +272,8 @@ void mpu6050_avg_reading(mpu6050_inst_t* inst, mpu6050_data_t* data, uint16_t n)
         while (absolute_time_diff_us(timer, get_absolute_time()) < 4000);
         timer = get_absolute_time();
 
-        mpu6050_fetch(inst);
+        if (mpu6050_fetch(inst))
+            return 1;
 
         gyro_x += inst->data.gyro_x / (float)n;
         gyro_y += inst->data.gyro_y / (float)n;
@@ -238,14 +297,19 @@ void mpu6050_avg_reading(mpu6050_inst_t* inst, mpu6050_data_t* data, uint16_t n)
     data->accel_x = accel_x;
     data->accel_y = accel_y;
     data->accel_z = accel_z;
+
+    return 0;
 }
 
 /*
- * Reads sensors and updates orientation
- * call between 50Hz and 250Hz for best results
+ * Reads sensors and updates orientation.
+ * call between 50Hz and 250Hz for best results.
+ * Returns 0 if successfull.
+ * Returns 1 if there is no response on i2c bus.
  */
-void mpu6050_update_state(mpu6050_inst_t* inst) {
-    mpu6050_fetch(inst);
+int mpu6050_update_state(mpu6050_inst_t* inst) {
+    if (mpu6050_fetch(inst))
+        return 1;
 
     static uint8_t start = 1;
 
@@ -282,6 +346,7 @@ void mpu6050_update_state(mpu6050_inst_t* inst) {
 
         inst->orientation = quaternion_product(&inst->orientation, &rotation);
     }
+    return 0;
 }
 
 /*

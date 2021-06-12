@@ -17,18 +17,29 @@
 int main() {
     stdio_init_all();
 
+    sleep_ms(3000);
+
     i2c_init(&i2c0_inst, 400 * 1000);
     gpio_set_function(I2C_SDA_PIN, GPIO_FUNC_I2C);
     gpio_set_function(I2C_SCL_PIN, GPIO_FUNC_I2C);
     gpio_pull_up(I2C_SDA_PIN);
     gpio_pull_up(I2C_SCL_PIN);
 
+    gpio_init(PICO_DEFAULT_LED_PIN);
+    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+
     mpu6050_inst_t mpu6050;
-    mpu6050_init(&mpu6050, &i2c0_inst, PICO_DEFAULT_LED_PIN);
+    if (mpu6050_init(&mpu6050, &i2c0_inst, PICO_DEFAULT_LED_PIN)) {
+        printf("mpu6050 not found\n");
+        return 1;
+    }
 
     absolute_time_t timer = get_absolute_time();
     while (1) {
-        mpu6050_update_state(&mpu6050);
+        if (mpu6050_update_state(&mpu6050)) {
+            printf("mpu6050 disconnected\n");
+            return 1;
+        }
 
         printf("roll: %f, pitch: %f, yaw: %f\n",
             mpu6050_get_roll(&mpu6050),

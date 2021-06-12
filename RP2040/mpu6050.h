@@ -13,55 +13,63 @@
 extern "C" {
 #endif /* __cplusplus */
 
-// ********** LED INDICATOR CODES **********
-// slow blink - waiting for aircraft to be stationary
-// fast blink - calibrating (do not move)
+/****************** LED INDICATOR CODES ******************/
+/* slow blink - waiting for aircraft to be stationary    */
+/* fast blink - calibrating (do not move)                */
 
-// ********** ACCELEROMETER CALIBRATION **********
+/********** ACCELEROMETER CALIBRATION **********/
 #define MPU6050_ACCELX_LEVEL 79.40
 #define MPU6050_ACCELY_LEVEL -103.94
 #define MPU6050_ACCELZ_LEVEL 1225.42
 
-// ********** INVERT AXES **********
+/********** INVERT AXES **********/
 #define MPU6050_INVERT_ROLL
-//#define MPU6050_INVERT_PITCH
-//#define MPU6050_INVERT_YAW
+/*#define MPU6050_INVERT_PITCH*/
+/*#define MPU6050_INVERT_YAW*/
 
-// ********** IMU CALIBRATION ROUTINE SETTINGS **********
+/********** IMU CALIBRATION ROUTINE SETTINGS **********/
 #define MPU6050_CAL_REST_TIME 1500
 #define MPU6050_CAL_MIN_ACCEL 200
 #define MPU6050_CAL_READINGS 1000
-// When enabled, the sensor does not have to be level during calibration.
-// Instead, the net acceleration vector will be used to determine initial
-// orientation.
+
+/*
+ * When enabled, the sensor does not have to be level during calibration.
+ * Instead, the net acceleration vector will be used to determine initial
+ * orientation.
+ */
 #define MPU6050_CAL_GRAVITY_ZERO
-// When enabled, acceleration data will be used to wait for rest before
-// starting the calibration routine in calibrate().
+/*
+ * When enabled, acceleration data will be used to wait for rest before
+ * starting the calibration routine in calibrate().
+ */
 #define MPU6050_CAL_WAIT_FOR_REST
 
-// ********** MPU6050 I2C AND REGISTER ADDRESSES **********
+/********** MPU6050 I2C AND REGISTER ADDRESSES **********/
 #define MPU6050_I2C_ADDRESS 0x68
 #define MPU6050_REG_POWER_MANAGEMENT 0x6B
 #define MPU6050_REG_GYRO_CONFIG 0x1B
 #define MPU6050_REG_ACCEL_CONFIG 0x1C
 #define MPU6050_REG_ACCEL_XOUT_H 0x3B
 
-// ********** MPU6050 POWER SETTINGS **********
+/* units: microseconds */
+#define MPU6050_I2C_TIMEOUT_PRE_BYTE 100
+
+/********** MPU6050 POWER SETTINGS **********/
 #define MPU6050_COMMAND_POWER_ON 0b00000000
 
-// ********** MPU6050 GYROSCOPE ACCURACY SETTINGS **********
-//#define MPU6050_GYRO_ACCURACY 0b00000000       // +/-  250 deg/sec
-#define MPU6050_GYRO_ACCURACY 0b00001000       // +/-  500 deg/sec
-//#define MPU6050_GYRO_ACCURACY 0b00010000       // +/- 1000 deg/sec
-//#define MPU6050_GYRO_ACCURACY 0b00011000       // +/- 2000 deg/sec
+/********** MPU6050 GYROSCOPE ACCURACY SETTINGS **********/
+/*#define MPU6050_GYRO_ACCURACY 0b00000000*/     /* +/-  250 deg/sec */
+#define MPU6050_GYRO_ACCURACY 0b00001000       /* +/-  500 deg/sec */
+/*#define MPU6050_GYRO_ACCURACY 0b00010000*/     /* +/- 1000 deg/sec */
+/*#define MPU6050_GYRO_ACCURACY 0b00011000*/     /* +/- 2000 deg/sec */
 
-// ********** MPU6050 ACCELEROMETER ACCURACY SETTINGS **********
-//#define MPU6050_ACCEL_ACCURACY 0b00000000       // +/-  2 g's
-//#define MPU6050_ACCEL_ACCURACY 0b00001000       // +/-  4 g's
-#define MPU6050_ACCEL_ACCURACY 0b00010000       // +/-  8 g's
-//#define MPU6050_ACCEL_ACCURACY 0b00011000       // +/- 16 g's
+/********** MPU6050 ACCELEROMETER ACCURACY SETTINGS **********/
+/*#define MPU6050_ACCEL_ACCURACY 0b00000000*/       /* +/-  2 g's */
+/*#define MPU6050_ACCEL_ACCURACY 0b00001000*/       /* +/-  4 g's */
+#define MPU6050_ACCEL_ACCURACY 0b00010000       /* +/-  8 g's */
+/*#define MPU6050_ACCEL_ACCURACY 0b00011000*/       /* +/- 16 g's */
 
-// ********** CONSTANTS FOR MATH **********
+/********** CONSTANTS FOR MATH **********/
 #define MPU6050_RADIANS_PER_DEGREE 0.01745329f
 #define MPU6050_DEGREES_PER_TICK 0.0152672f
 #define MPU6050_TICKS_PER_G 4096
@@ -126,19 +134,25 @@ typedef struct mpu6050_inst mpu6050_inst_t;
 
 /*
  * Initialize mpu6050 object. Pass 0 for argument pin to disable status led.
+ * Returns 0 if initialization is successfull.
+ * Returns 1 if there is no response on i2c bus.
  */
-void mpu6050_init(mpu6050_inst_t *inst, i2c_inst_t *i2c, uint pin);
+int mpu6050_init(mpu6050_inst_t *inst, i2c_inst_t *i2c, uint pin);
 
 /*
  * Returns the average result of n sensor readings
+ * Returns 0 if reading was successfull.
+ * Returns 1 if there is no response on i2c bus.
  */
-void mpu6050_avg_reading(mpu6050_inst_t* inst, mpu6050_data_t* data, uint16_t n);
+int mpu6050_avg_reading(mpu6050_inst_t* inst, mpu6050_data_t* data, uint16_t n);
 
 /*
- * Reads sensors and updates orientation
- * call between 50Hz and 250Hz for best results
+ * Reads sensors and updates orientation.
+ * call between 50Hz and 250Hz for best results.
+ * Returns 0 if successfull.
+ * Returns 1 if there is no response on i2c bus.
  */
-void mpu6050_update_state(mpu6050_inst_t *inst);
+int mpu6050_update_state(mpu6050_inst_t *inst);
 
 /*
  * Returns the roll angle in degrees
