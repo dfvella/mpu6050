@@ -184,6 +184,8 @@ int mpu6050_init(mpu6050_inst_t* inst, i2c_inst_t* i2c, uint pin) {
 
     inst->i2c = i2c;
 
+    inst->start = 1;
+
     inst->orientation.w = 0.70710;
     inst->orientation.x = 0.70710;
     inst->orientation.y = 0.00001;
@@ -311,10 +313,8 @@ int mpu6050_update_state(mpu6050_inst_t* inst) {
     if (mpu6050_fetch(inst))
         return 1;
 
-    static uint8_t start = 1;
-
-    if (start)  {
-        start = 0;
+    if (inst->start)  {
+        inst->start = 0;
         inst->timer = get_absolute_time();
     } else {
         /* units: seconds */
@@ -353,7 +353,7 @@ int mpu6050_update_state(mpu6050_inst_t* inst) {
  * Returns the roll angle in degrees
  * -180 < roll < 180
  */
-float mpu6050_get_roll(mpu6050_inst_t* inst) {
+float mpu6050_get_roll(const mpu6050_inst_t* inst) {
     float result = atan2(
         2 * inst->orientation.x * inst->orientation.w -
         2 * inst->orientation.y * inst->orientation.z,
@@ -379,7 +379,7 @@ float mpu6050_get_roll(mpu6050_inst_t* inst) {
  * Returns the pitch angle in degrees
  * -90 < pitch < 90
  */
-float mpu6050_get_pitch(mpu6050_inst_t* inst) {
+float mpu6050_get_pitch(const mpu6050_inst_t* inst) {
     float result = asin(
         2 * inst->orientation.x * inst->orientation.y +
         2 * inst->orientation.z * inst->orientation.w
@@ -398,7 +398,7 @@ float mpu6050_get_pitch(mpu6050_inst_t* inst) {
  * Returns the yaw angle in degrees
  * -180 < yaw < 180
  */
-float mpu6050_get_yaw(mpu6050_inst_t* inst) {
+float mpu6050_get_yaw(const mpu6050_inst_t* inst) {
     float result = atan2(
         2 * inst->orientation.y * inst->orientation.w -
         2 * inst->orientation.x * inst->orientation.z,

@@ -125,6 +125,8 @@ struct mpu6050_inst {
     i2c_inst_t *i2c;
 
     uint led_pin;
+
+    uint8_t start;
 };
 
 /*
@@ -158,19 +160,19 @@ int mpu6050_update_state(mpu6050_inst_t *inst);
  * Returns the roll angle in degrees
  * -180 < roll < 180
  */
-float mpu6050_get_roll(mpu6050_inst_t *inst);
+float mpu6050_get_roll(const mpu6050_inst_t *inst);
 
 /*
  * Returns the roll pitch in degrees
- * -180 < pitch < 180
+ * -90 < pitch < 90
  */
-float mpu6050_get_pitch(mpu6050_inst_t *inst);
+float mpu6050_get_pitch(const mpu6050_inst_t *inst);
 
 /*
  * Returns the yaw angle in degrees
  * -180 < yaw < 180
  */
-float mpu6050_get_yaw(mpu6050_inst_t *inst);
+float mpu6050_get_yaw(const mpu6050_inst_t *inst);
 
 #ifdef __cplusplus
 }
